@@ -1,0 +1,236 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id
+  createdAt DateTime @default(now())
+  updateAt  DateTime @updatedAt
+
+  name     String
+  email    String @unique
+  password String
+
+  admin   Admin?
+  manager Manager?
+
+  bookings Booking[]
+  tickets  Ticket[]
+  review   Review[]
+}
+
+model Admin {
+  id        String   @id
+  createdAt DateTime @default(now())
+  updateAt  DateTime @updatedAt
+
+  user User @relation(fields: [id], references: [id])
+}
+
+model Manager {
+  id        String   @id
+  createdAt DateTime @default(now())
+  updateAt  DateTime @updatedAt
+
+  user     User    @relation(fields: [id], references: [id])
+  cinemaId Int?
+  cinema   Cinema? @relation(fields: [cinemaId], references: [id])
+}
+
+model Cinema {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updateAt  DateTime @updatedAt
+
+  name     String
+  studios  Studio[]
+  address  Address?
+  managers Manager[]
+}
+
+model Address {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updateAt  DateTime @updatedAt
+
+  cinemaId Int    @unique
+  cinema   Cinema @relation(fields: [cinemaId], references: [id])
+  address  String
+  lat      Float
+  lng      Float
+}
+
+model Studio {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updateAt  DateTime @updatedAt
+
+  number          Int
+  cinemaId        Int
+  cinema          Cinema          @relation(fields: [cinemaId], references: [id])
+  seats           Seat[]
+  showtimes       Showtime[]
+  projectionType  ProjectionType  @default(STANDARD)
+  soundSystemType SoundSystemType @default(DOLBY_ATMOS)
+  price           Decimal         @default(30000)
+
+  @@unique([cinemaId, number])
+}
+
+model Seat {
+  row      Int
+  column   Int
+  studioId Int
+  studio   Studio    @relation(fields: [studioId], references: [id])
+  bookings Booking[]
+
+  @@id([studioId, row, column])
+}
+
+model Movie {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updateAt  DateTime @updatedAt
+
+  title       String
+  director    String
+  genre       Genre
+  rated       Rated
+  duration    Int // duration in minutes
+  releaseYear Int        @db.Year
+  posterUrl   String?
+  showtimes   Showtime[]
+  review      Review[]
+}
+
+model Review {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updateAt  DateTime @updatedAt
+
+  userId  String
+  movieId Int
+  movie   Movie  @relation(fields: [movieId], references: [id])
+  User    User   @relation(fields: [userId], references: [id])
+  review  String
+  star    Int
+}
+
+model Showtime {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updateAt  DateTime @updatedAt
+
+  startTime DateTime
+  movieId   Int
+  movie     Movie     @relation(fields: [movieId], references: [id])
+  stuidoId  Int
+  studio    Studio    @relation(fields: [stuidoId], references: [id])
+  bookings  Booking[]
+
+  @@unique([startTime, stuidoId])
+}
+
+model Booking {
+  id        Int      @id @default(autoincrement())
+  createdAt DateTime @default(now())
+  updateAt  DateTime @updatedAt
+
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+  showtimeId Int
+  showtime   Showtime @relation(fields: [showtimeId], references: [id])
+  row        Int
+  column     Int
+  studioId   Int
+  seat       Seat     @relation(fields: [studioId, row, column], references: [studioId, row, column])
+  ticketId   Int
+  ticket     Ticket   @relation(fields: [ticketId], references: [id])
+
+  @@unique([studioId, row, column, showtimeId], name: "uniqueSeatShowtime")
+}
+
+model Ticket {
+  id       Int       @id @default(autoincrement())
+  userId   String
+  user     User      @relation(fields: [userId], references: [id])
+  bookings Booking[]
+  payment  Payment?
+}
+
+model Payment {
+  id            String        @id
+  paymentDate   DateTime
+  ticketId      Int           @unique
+  ticket        Ticket        @relation(fields: [ticketId], references: [id])
+  paymentMethod PaymentMethod
+  paymentStatus Boolean       @default(false)
+}
+
+enum ProjectionType {
+  STANDARD
+  IMAX
+  DOLBY_CINEMA
+  RPX
+  SCREENX
+  PLF
+}
+
+enum SoundSystemType {
+  MONO
+  STEREO
+  DOLBY_DIGITAL
+  DOLBY_ATMOS
+  DTS
+  DTS_X
+  SONY_SDDS
+  AURO_3D
+  IMAX_ENHANCED
+}
+
+enum Genre {
+  ACTION
+  ADVENTURE
+  ANIMATION
+  COMEDY
+  CRIME
+  DOCUMENTARY
+  DRAMA
+  FAMILY
+  FANTASY
+  HISTORY
+  HORROR
+  MUSIC
+  MYSTERY
+  ROMANCE
+  SCI_FI
+  SPORT
+  THRILLER
+}
+
+enum PaymentMethod {
+  DANA
+  TRANSFER_BANK
+  GOPAY
+  OVO
+  SHOPEE_PAY
+}
+
+enum Rated {
+  G
+  PG
+  PG_13
+  R
+  NC_17
+}
